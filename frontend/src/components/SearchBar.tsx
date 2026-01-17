@@ -24,13 +24,12 @@ const SearchBar = ({ onSearch, isLoading = false }: SearchBarProps) => {
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto">
       <div
-        className={`relative glass-panel transition-all duration-300 ${
-          isFocused ? "search-glow scale-[1.02]" : ""
-        }`}
+        className={`relative glass-panel transition-all duration-300 ${isFocused ? "search-glow scale-[1.02]" : ""
+          }`}
       >
         <div className="flex items-center px-5 py-4">
           <Search className="w-5 h-5 text-muted-foreground mr-4 flex-shrink-0" />
-          
+
           <div className="relative flex-1">
             <input
               ref={inputRef}
@@ -44,7 +43,7 @@ const SearchBar = ({ onSearch, isLoading = false }: SearchBarProps) => {
               disabled={isLoading}
             />
             {!isTyping && !isFocused && (
-              <div className="absolute inset-0 flex items-center">
+              <div className="absolute inset-0 flex items-center pointer-events-none">
                 <AnimatedPlaceholder isTyping={isTyping} />
               </div>
             )}

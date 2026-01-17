@@ -13,13 +13,27 @@ const Index = () => {
     setIsLoading(true);
     setNaturalLanguageResult(null);
 
-    // Simulate API call - will be replaced with actual MongoDB + LLM integration
-    setTimeout(() => {
-      setNaturalLanguageResult(
-        `Based on your query "${searchQuery}", I found 42 matching records in the database. The data shows 3 sample items with values ranging from 95 to 280. The average value across these items is approximately 175. Would you like me to filter or analyze this data further?`
-      );
+    try {
+      const response = await fetch("http://localhost:8000/api/query", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: searchQuery }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch results");
+      }
+
+      const data = await response.json();
+      setNaturalLanguageResult(data.natural_language_response);
+    } catch (error) {
+      console.error("Error performing search:", error);
+      setNaturalLanguageResult("Sorry, I encountered an error while processing your request. Please check if the backend is running.");
+    } finally {
       setIsLoading(false);
-    }, 2000);
+    }
   };
 
   return (
@@ -36,12 +50,12 @@ const Index = () => {
               <Container className="w-8 h-8 text-primary" />
             </div>
           </div>
-          
+
           <h1 className="text-5xl md:text-6xl font-bold mb-4">
             <span className="text-foreground">Data </span>
             <span className="gradient-text glow-text">QueryAI</span>
           </h1>
-          
+
           <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto">
             Ask questions in plain English. Get insights from your MongoDB data instantly.
           </p>
