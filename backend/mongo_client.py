@@ -65,13 +65,13 @@ class MongoDBClient:
                 limit = query_data.get('limit', 20)
                 # Apply projection if exists
                 if query_projection:
-                    cursor = collection.find(query_filter, query_projection).limit(limit).max_time_ms(20000)
+                    cursor = collection.find(query_filter, query_projection).limit(limit).max_time_ms(30000)
                 else:
-                    cursor = collection.find(query_filter).limit(limit).max_time_ms(20000)
+                    cursor = collection.find(query_filter).limit(limit).max_time_ms(30000)
                 result = list(cursor)
             
             elif action == 'aggregate':
-                cursor = collection.aggregate(query_pipeline, maxTimeMS=20000)
+                cursor = collection.aggregate(query_pipeline, maxTimeMS=30000)
                 result = list(cursor)
                 
             elif action == 'count_documents':

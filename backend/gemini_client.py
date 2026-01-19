@@ -1,7 +1,8 @@
 import os
 import json
 import logging
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 import glob
 from pathlib import Path
@@ -44,10 +45,10 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 if not API_KEY:
     raise ValueError("GEMINI_API_KEY not found in environment variables")
 
-# Configure Gemini
-genai.configure(api_key=API_KEY)
+# Initialize Client
+client = genai.Client(api_key=API_KEY)
 
-# Model Name - Reverting to 2.5-flash-lite as per previous success
+# Model Name
 MODEL_NAME = "gemini-2.5-flash-lite" 
 
 SYSTEM_INSTRUCTION_QUERY = """
@@ -68,6 +69,13 @@ Date Handling:
 - For example, if today is 2026-01-17, "last month" should be approximately 2025-12-17 to 2026-01-17.
 - Always output dates in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ).
 
+Performance & Joins:
+- IMPORTANT: When searching for a user's surveys/answers by phone number, you MUST join the 'users' collection with other collections.
+- Relationship: 'users._id' matches 'surveyhistories.userId' and 'answers.userId'.
+- Phone Number: Always use 'user.number' for phone numbers, not 'user.phone' or 'surveyhistories.phone'.
+- Efficient Joins: Always `$match` the user by phone number in the 'users' collection BEFORE performing a `$lookup` if possible, or ensure the `$match` filters the joined dataset as early as possible.
+- If a simpler 'find' can answer the question (e.g., "count users"), prefer it over 'aggregate'.
+
 Schema Context:
 {SCHEMA_CONTEXT}
 """
@@ -85,19 +93,16 @@ def generate_mongo_query(user_query: str) -> dict:
     """
     try:
         schema_context = load_schemas()
-        # schema_context = "Collections: User (name, age), Survey (title, reward)." # DEBUG ONLY
-        
-        prompt = f"User Query: {user_query}\n\nGenerate the MongoDB query JSON:"
-        
         system_prompt = SYSTEM_INSTRUCTION_QUERY.replace("{SCHEMA_CONTEXT}", schema_context)
         
-        model = genai.GenerativeModel(
-            model_name=MODEL_NAME,
-            system_instruction=system_prompt,
-            generation_config={"response_mime_type": "application/json"}
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=f"User Query: {user_query}\n\nGenerate the MongoDB query JSON:",
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json"
+            )
         )
-        
-        response = model.generate_content(prompt)
         
         result_text = response.text
         # Clean up potential markdown if not handled by mime_type
@@ -109,8 +114,6 @@ def generate_mongo_query(user_query: str) -> dict:
         error_msg = f"CRITICAL ERROR generating Mongo query: {str(e)}"
         print(error_msg)
         logging.error(f"{error_msg}\nTraceback:", exc_info=True)
-        
-        # Fallback to simple query if complex fails? No, return error.
         return {"error": "Failed to generate query", "details": str(e)}
 
 def convert_results_to_natural_language(user_query: str, results: list) -> str:
@@ -120,14 +123,13 @@ def convert_results_to_natural_language(user_query: str, results: list) -> str:
     try:
         results_json = json.dumps(results, default=str) # Handle ObjectId/Date
         
-        prompt = f"User Query: {user_query}\n\nQuery Results: {results_json}\n\nPlease provide a natural language answer based on these results."
-        
-        model = genai.GenerativeModel(
-            model_name=MODEL_NAME,
-            system_instruction=SYSTEM_INSTRUCTION_RESPONSE
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=f"User Query: {user_query}\n\nQuery Results: {results_json}\n\nPlease provide a natural language answer based on these results.",
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_INSTRUCTION_RESPONSE
+            )
         )
-        
-        response = model.generate_content(prompt)
         return response.text
         
     except Exception as e:
